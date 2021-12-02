@@ -7,12 +7,16 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 credentials = json.loads(open('credentials.json').read())
-authentication = HTTPBasicAuth(credentials['username'], credentials['password'])
 
-data = requests.get('https://api.github.com/users/' + credentials['username'], auth = authentication)
+# headers = {'Authorization': 'token %s' % credentials['token']}
+# authentication = HTTPBasicAuth(credentials['username'], credentials['password'])
+
+data = requests.get('https://api.github.com/users/slimgroup', auth=(credentials['username'], credentials['token']))
+print(data)
 data = data.json()
 
-print("Information about user {}:\n".format(credentials['username']))
+
+print("Information about user slimgroup:\n")
 print("Name: {}".format(data['name']))
 print("Email: {}".format(data['email']))
 print("Location: {}".format(data['location']))
@@ -25,7 +29,7 @@ url = data['repos_url']
 page_no = 1
 repos_data = []
 while (True):
-    response = requests.get(url, auth = authentication)
+    response = requests.get(url, auth=(credentials['username'], credentials['token']))
     response = response.json()
     repos_data = repos_data + response
     repos_fetched = len(response)
@@ -54,17 +58,24 @@ for i, repo in enumerate(repos_data):
     data.append(repo['url'])
     data.append(repo['commits_url'].split("{")[0])
     data.append(repo['url'] + '/languages')
+    # get traffic
+    traffic_url = 'https://api.github.com/repos/slimgroup/' + repo['name'] + '/traffic/'
+    views = requests.get(traffic_url + 'views', auth=(credentials['username'], credentials['token'])).json()['uniques']
+    clones = requests.get(traffic_url + 'clones', auth=(credentials['username'], credentials['token'])).json()['uniques']
+
+    data.append(views)
+    data.append(clones)
     repos_information.append(data)
 
 
 repos_df = pd.DataFrame(repos_information, columns = ['Id', 'Name', 'Description', 'Created on', 'Updated on', 
                                                       'Owner', 'License', 'Includes wiki', 'Forks count', 
                                                       'Issues count', 'Stars count', 'Watchers count',
-                                                      'Repo URL', 'Commits URL', 'Languages URL'])
+                                                      'Repo URL', 'Commits URL', 'Languages URL', 'Views', 'Clones'])
 
 print("Collecting language data")
 for i in range(repos_df.shape[0]):
-    response = requests.get(repos_df.loc[i, 'Languages URL'], auth = authentication)
+    response = requests.get(repos_df.loc[i, 'Languages URL'], auth=(credentials['username'], credentials['token']))
     response = response.json()
     if response != {}:
         languages = []
@@ -84,7 +95,7 @@ for i in range(repos_df.shape[0]):
     url = repos_df.loc[i, 'Commits URL']
     page_no = 1
     while (True):
-        response = requests.get(url, auth = authentication)
+        response = requests.get(url, auth=(credentials['username'], credentials['token']))
         response = response.json()
         print("URL: {}, commits: {}".format(url, len(response)))
         for commit in response:
